@@ -1,0 +1,53 @@
+{
+  "name": "taiwan-pt-mcp",
+  "version": "1.0.0",
+  "description": "台灣物理治療實證與法規 MCP Server — 查證 PEDro / CPG / 物理治療師法 / 解剖生物力學",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "taiwan-pt-mcp": "dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-username/taiwan-pt-mcp.git"
+  },
+  "homepage": "https://github.com/your-username/taiwan-pt-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/your-username/taiwan-pt-mcp/issues"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:inspector": "npx @modelcontextprotocol/inspector dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src tests --ext .ts",
+    "prepare": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.0",
+    "msw": "^2.3.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "mcp",
+    "physical-therapy",
+    "taiwan",
+    "pedro",
+    "pubmed",
+    "rehabilitation",
+    "evidence-based"
+  ],
+  "license": "MIT"
+}

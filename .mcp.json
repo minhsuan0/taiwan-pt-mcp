@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "taiwan-pt-mcp": {
+      "command": "/Users/liminxuan/.local/node/bin/node",
+      "args": [
+        "/Users/liminxuan/Documents/antigravity/taiwan-pt-mcp/dist/index.js"
+      ],
+      "description": "台灣物理治療實證與法規助手 — 查詢 PEDro、CPG 指南、物理治療師法、解剖生物力學"
+    }
+  }
+}
