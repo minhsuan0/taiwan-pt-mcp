@@ -41,7 +41,7 @@ taiwan-pt-mcp
 ### 方法三：從原始碼
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/taiwan-pt-mcp.git
+git clone https://github.com/minhsuan0/taiwan-pt-mcp.git
 cd taiwan-pt-mcp
 npm install
 npm run build

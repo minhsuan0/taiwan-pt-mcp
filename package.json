@@ -9,11 +9,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/your-username/taiwan-pt-mcp.git"
+    "url": "https://github.com/minhsuan0/taiwan-pt-mcp.git"
   },
-  "homepage": "https://github.com/your-username/taiwan-pt-mcp#readme",
+  "homepage": "https://github.com/minhsuan0/taiwan-pt-mcp#readme",
   "bugs": {
-    "url": "https://github.com/your-username/taiwan-pt-mcp/issues"
+    "url": "https://github.com/minhsuan0/taiwan-pt-mcp/issues"
   },
   "scripts": {
     "build": "tsc",
