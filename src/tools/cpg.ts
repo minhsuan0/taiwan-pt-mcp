@@ -41,7 +41,7 @@ interface ArticleSummary {
 }
 
 /**
- * @param condition   - 疾患名稱，例如 "rotator cuff", "低背痛", "anterior cruciate ligament"
+ * @param condition   - 疾患名稱，例如 "rotator cuff", "下背痛", "anterior cruciate ligament"
  * @param body_region - 身體部位，例如 "shoulder", "lumbar spine", "knee"
  * @param maxResults  - 最多回傳筆數（預設 5）
  */

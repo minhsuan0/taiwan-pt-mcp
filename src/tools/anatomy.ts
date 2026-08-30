@@ -46,7 +46,7 @@ const ANATOMY_DICT: Record<string, { zh: string; function: string; innervation: 
     zh: "臀中肌（Gluteus Medius）",
     function: "髖關節外展、內旋（前段纖維）；步態站立相骨盆穩定的關鍵肌肉。",
     innervation: "臀上神經（L4–S1）",
-    clinical: "無力時出現 Trendelenburg 步態；與髂脛束症候群、低背痛、髖骨股症候群（PFPS）相關。",
+    clinical: "無力時出現 Trendelenburg 步態；與髂脛束症候群、下背痛、髖骨股症候群（PFPS）相關。",
   },
   "quadriceps": {
     zh: "股四頭肌（Quadriceps Femoris）：股直肌、股外側肌、股中間肌、股內側肌",

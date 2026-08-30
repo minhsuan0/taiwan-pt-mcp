@@ -35,7 +35,7 @@ server.tool(
       .string()
       .min(2)
       .describe(
-        "搜尋關鍵詞，例如 'rotator cuff exercise' 或 '低背痛 核心穩定訓練'"
+        "搜尋關鍵詞，例如 'rotator cuff exercise' 或 '下背痛 核心穩定訓練'"
       ),
     max_results: z
       .number()
