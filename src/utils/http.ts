@@ -3,6 +3,8 @@
  * Taiwan PT MCP — http.ts
  */
 
+import { recordApiCall } from "./metrics.js";
+
 export interface FetchOptions {
   method?: "GET" | "POST";
   headers?: Record<string, string>;
@@ -56,6 +58,12 @@ export async function fetchWithRetry(
         continue;
       }
 
+      if (response.ok) {
+        recordApiCall(true);
+      } else {
+        recordApiCall(false);
+      }
+
       return response;
     } catch (err) {
       clearTimeout(timer);
@@ -69,6 +77,7 @@ export async function fetchWithRetry(
     }
   }
 
+  recordApiCall(false);
   throw lastError ?? new Error(`fetchWithRetry failed: ${url}`);
 }
 

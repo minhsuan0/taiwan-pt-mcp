@@ -155,6 +155,47 @@ node dist/index.js
 
 ---
 
+## 系統監控與心跳通知（維運設定）
+
+本伺服器支援**外部心跳監控（死人開關）**與**每日 Telegram 狀態報告**，協助維護者隨時掌握系統可用性。
+
+### 1. 外部心跳檢測（Dead Man's Switch）
+防止主機斷電、程式崩潰或網路中斷而無聲死亡：
+- 註冊並在 [Healthchecks.io](https://healthchecks.io) 建立 Check（建議間隔 2 分鐘）。
+- 設定環境變數 `HEARTBEAT_URL`，伺服器每 2 分鐘會定時打卡。若超時未收到心跳，Healthchecks 會自動透過 Email/Telegram 發出斷線警報。
+
+### 2. 每日中午 12 點 Telegram 運行報告
+每天中午 12:00 自動推播過去 24 小時的運行摘要：
+```
+🟢 [Taiwan-PT-MCP 運行報告]
+- 伺服器狀態：健康運行中
+- 連續運作時間（Uptime）：3 天 14 小時
+- 過去 24 小時查詢次數：86 次
+- 外部 PubMed 連線成功率：99.2%
+```
+- 設定環境變數 `TELEGRAM_BOT_TOKEN`（向 `@BotFather` 取得）與 `TELEGRAM_CHAT_ID`。
+
+### MCP 客戶端環境變數配置範例（Claude Desktop / Cursor / Antigravity）
+
+```json
+{
+  "mcpServers": {
+    "taiwan-pt-mcp": {
+      "command": "npx",
+      "args": ["taiwan-pt-mcp"],
+      "env": {
+        "NCBI_API_KEY": "你的_NCBI_API_KEY",
+        "HEARTBEAT_URL": "https://hc-ping.com/你的-uuid",
+        "TELEGRAM_BOT_TOKEN": "123456:ABC-DEF...",
+        "TELEGRAM_CHAT_ID": "你的_CHAT_ID"
+      }
+    }
+  }
+}
+```
+
+---
+
 ## 免責聲明
 
 - 本工具查詢結果**僅供物理治療師臨床參考**，不替代醫療診斷

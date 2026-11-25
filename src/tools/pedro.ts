@@ -8,7 +8,13 @@
  * 備援：若 PubMed 無法連線，回傳 PEDro 搜尋連結供使用者自行查詢。
  */
 
-import { getJson } from "../utils/http.js";
+import {
+  pubmedSearch,
+  pubmedSummary,
+  extractDoi,
+  parseYear,
+  buildArticleUrl,
+} from "../utils/pubmed.js";
 import {
   buildResponse,
   formatAuthors,
@@ -16,35 +22,7 @@ import {
   type EvidenceResult,
 } from "../utils/format.js";
 
-const PUBMED_ESEARCH = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi";
-const PUBMED_ESUMMARY = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi";
-const PUBMED_EFETCH = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi";
 const PEDRO_SEARCH_URL = "https://pedro.org.au/english/search/";
-
-interface ESearchResult {
-  esearchresult: {
-    count: string;
-    idlist: string[];
-  };
-}
-
-interface ESummaryResult {
-  result: {
-    uids: string[];
-    [pmid: string]: unknown;
-  };
-}
-
-interface ArticleSummary {
-  uid: string;
-  pubdate: string;
-  epubdate: string;
-  source: string;
-  title: string;
-  authors: Array<{ name: string; authtype: string }>;
-  elocationid: string; // DOI
-  fulljournalname?: string;
-}
 
 /**
  * 主要查詢函式
@@ -58,9 +36,7 @@ export async function searchPedroEvidence(query: string, maxResults = 5) {
 
   try {
     // Step 1: esearch → 取得 PMID 列表
-    const searchUrl = `${PUBMED_ESEARCH}?db=pubmed&term=${encodeURIComponent(fullQuery)}&retmax=${maxResults}&retmode=json&sort=relevance`;
-    const searchData = await getJson<ESearchResult>(searchUrl);
-    const ids = searchData.esearchresult?.idlist ?? [];
+    const ids = await pubmedSearch(fullQuery, maxResults);
 
     if (ids.length === 0) {
       return buildResponse(
@@ -75,18 +51,15 @@ export async function searchPedroEvidence(query: string, maxResults = 5) {
     }
 
     // Step 2: esummary → 取得文章摘要資訊
-    const summaryUrl = `${PUBMED_ESUMMARY}?db=pubmed&id=${ids.join(",")}&retmode=json`;
-    const summaryData = await getJson<ESummaryResult>(summaryUrl);
+    const summaries = await pubmedSummary(ids);
 
     const results: EvidenceResult[] = ids
       .map((pmid): EvidenceResult | null => {
-        const art = summaryData.result[pmid] as ArticleSummary | undefined;
+        const art = summaries[pmid];
         if (!art) return null;
 
-        const year = parseInt(art.pubdate?.split(" ")[0] ?? "0", 10) || undefined;
-        const doi = art.elocationid?.startsWith("10.")
-          ? art.elocationid.replace(/^doi:\s*/i, "").trim()
-          : undefined;
+        const year = parseYear(art.pubdate);
+        const doi = extractDoi(art.elocationid);
 
         return {
           title: truncate(art.title, 200),
@@ -96,9 +69,7 @@ export async function searchPedroEvidence(query: string, maxResults = 5) {
           pmid,
           year,
           journal: art.fulljournalname ?? art.source,
-          url: doi
-            ? `https://doi.org/${doi}`
-            : `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
+          url: buildArticleUrl(doi, pmid),
           evidence_level: "RCT / Systematic Review / Meta-analysis（經 PubMed 篩選）",
         };
       })

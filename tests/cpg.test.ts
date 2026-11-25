@@ -42,14 +42,13 @@ describe("searchCpgGuidelines — unit (mock)", () => {
   };
 
   beforeEach(() => {
-    let callCount = 0;
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => {
-        callCount++;
-        const body = callCount <= 2
-          ? JSON.stringify(mockSearchResp)
-          : JSON.stringify(mockSummaryResp);
+      vi.fn(async (url: string | URL | Request) => {
+        const urlStr = typeof url === "string" ? url : url.toString();
+        const body = urlStr.includes("esummary")
+          ? JSON.stringify(mockSummaryResp)
+          : JSON.stringify(mockSearchResp);
         return {
           ok: true,
           status: 200,
@@ -64,7 +63,9 @@ describe("searchCpgGuidelines — unit (mock)", () => {
 
   it("應正確解析 CPG 回傳", async () => {
     const result = await searchCpgGuidelines("shoulder impingement", "shoulder", 1);
-    expect(result.results.length).toBeGreaterThanOrEqual(0);
+    expect(result.results.length).toBeGreaterThanOrEqual(1);
+    expect(result.results[0].title).toContain("Shoulder");
+    expect(result.results[0].doi).toBe("10.9999/pt.2023.cpg");
     // 結構正確
     expect(result).toHaveProperty("query_time");
   });

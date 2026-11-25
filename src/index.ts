@@ -19,6 +19,14 @@ import { searchPedroEvidence } from "./tools/pedro.js";
 import { searchCpgGuidelines } from "./tools/cpg.js";
 import { searchPtLaws } from "./tools/laws.js";
 import { searchAnatomyBiomechanics } from "./tools/anatomy.js";
+import { recordQuery } from "./utils/metrics.js";
+import { startHeartbeat, stopHeartbeat, pingHeartbeat } from "./utils/heartbeat.js";
+import {
+  startTelegramScheduler,
+  stopTelegramScheduler,
+  startTelegramListener,
+  stopTelegramListener,
+} from "./utils/telegram.js";
 
 // ─── 建立 MCP Server ────────────────────────────────────────────────────────
 const server = new McpServer({
@@ -47,6 +55,7 @@ server.tool(
       .describe("最多回傳筆數，預設 5"),
   },
   async ({ query, max_results }) => {
+    recordQuery();
     const result = await searchPedroEvidence(query, max_results ?? 5);
     return {
       content: [
@@ -86,6 +95,7 @@ server.tool(
       .describe("最多回傳筆數，預設 5"),
   },
   async ({ condition, body_region, max_results }) => {
+    recordQuery();
     const result = await searchCpgGuidelines(
       condition,
       body_region,
@@ -115,6 +125,7 @@ server.tool(
       ),
   },
   async ({ keyword }) => {
+    recordQuery();
     const result = await searchPtLaws(keyword);
     return {
       content: [
@@ -148,6 +159,7 @@ server.tool(
       .describe("PubMed 最多回傳筆數，預設 4"),
   },
   async ({ muscle_or_joint, max_results }) => {
+    recordQuery();
     const result = await searchAnatomyBiomechanics(
       muscle_or_joint,
       max_results ?? 4
@@ -167,11 +179,30 @@ server.tool(
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
+
+  // 啟動外部心跳監控、Telegram 每日摘要排程與即時指令監聽
+  startHeartbeat();
+  startTelegramScheduler();
+  startTelegramListener();
+
   // MCP servers must not write to stdout except via the protocol
   process.stderr.write(
     "[taiwan-pt-mcp] Server started on stdio. Ready to serve PT evidence queries.\n"
   );
 }
+
+// ─── 優雅關閉處理 ─────────────────────────────────────────────────────────────
+async function gracefulShutdown(signal: string) {
+  process.stderr.write(`[taiwan-pt-mcp] 接收到 ${signal}，正在停止排程與心跳...\n`);
+  stopHeartbeat();
+  stopTelegramScheduler();
+  stopTelegramListener();
+  await pingHeartbeat("fail").catch(() => {});
+  process.exit(0);
+}
+
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 
 main().catch((err) => {
   process.stderr.write(`[taiwan-pt-mcp] Fatal error: ${err}\n`);

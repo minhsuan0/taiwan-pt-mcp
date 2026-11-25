@@ -61,15 +61,13 @@ describe("searchPedroEvidence — unit (mock)", () => {
   };
 
   beforeEach(() => {
-    let callCount = 0;
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => {
-        callCount++;
-        const body =
-          callCount === 1
-            ? JSON.stringify(mockEsearchResponse)
-            : JSON.stringify(mockEsummaryResponse);
+      vi.fn(async (url: string | URL | Request) => {
+        const urlStr = typeof url === "string" ? url : url.toString();
+        const body = urlStr.includes("esummary")
+          ? JSON.stringify(mockEsummaryResponse)
+          : JSON.stringify(mockEsearchResponse);
         return {
           ok: true,
           status: 200,

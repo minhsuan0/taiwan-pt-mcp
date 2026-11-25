@@ -13,32 +13,19 @@
  *   - 台灣物理治療學會: https://www.twpta.org.tw/
  */
 
-import { getJson } from "../utils/http.js";
+import {
+  pubmedSearch,
+  pubmedSummary,
+  extractDoi,
+  parseYear,
+  buildArticleUrl,
+} from "../utils/pubmed.js";
 import {
   buildResponse,
   formatAuthors,
   truncate,
   type EvidenceResult,
 } from "../utils/format.js";
-
-const PUBMED_ESEARCH = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi";
-const PUBMED_ESUMMARY = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi";
-
-interface ESearchResult {
-  esearchresult: { count: string; idlist: string[] };
-}
-interface ESummaryResult {
-  result: { uids: string[]; [pmid: string]: unknown };
-}
-interface ArticleSummary {
-  uid: string;
-  pubdate: string;
-  source: string;
-  title: string;
-  authors: Array<{ name: string }>;
-  elocationid: string;
-  fulljournalname?: string;
-}
 
 /**
  * @param condition   - 疾患名稱，例如 "rotator cuff", "下背痛", "anterior cruciate ligament"
@@ -61,28 +48,21 @@ export async function searchCpgGuidelines(
   const combinedQuery = `(${condition}) AND (${body_region}) AND (clinical practice guideline OR guideline OR CPG) AND (physical therapy OR physiotherapy OR rehabilitation)`;
 
   try {
-    const searchUrl =
-      `${PUBMED_ESEARCH}?db=pubmed` +
-      `&term=${encodeURIComponent(combinedQuery)}` +
-      `&retmax=${maxResults}&retmode=json&sort=relevance` +
-      `&filter=pubt.practiceguideline`;
-
-    const searchData = await getJson<ESearchResult>(searchUrl);
-    const ids = searchData.esearchresult?.idlist ?? [];
+    // 先嘗試 Practice Guideline filter
+    let ids = await pubmedSearch(
+      combinedQuery,
+      maxResults,
+      "&filter=pubt.practiceguideline"
+    );
 
     // 若 Practice Guideline filter 無結果，放寬條件
-    let finalIds = ids;
     if (ids.length === 0) {
-      const fallbackUrl =
-        `${PUBMED_ESEARCH}?db=pubmed` +
-        `&term=${encodeURIComponent(
-          `(${condition}) AND (${body_region}) AND (guideline OR CPG OR systematic review) AND (physical therapy OR physiotherapy)`
-        )}&retmax=${maxResults}&retmode=json&sort=relevance`;
-      const fallback = await getJson<ESearchResult>(fallbackUrl);
-      finalIds = fallback.esearchresult?.idlist ?? [];
+      const fallbackQuery =
+        `(${condition}) AND (${body_region}) AND (guideline OR CPG OR systematic review) AND (physical therapy OR physiotherapy)`;
+      ids = await pubmedSearch(fallbackQuery, maxResults);
     }
 
-    if (finalIds.length === 0) {
+    if (ids.length === 0) {
       return buildResponse(
         "PubMed CPG 查詢",
         "https://pubmed.ncbi.nlm.nih.gov/",
@@ -94,17 +74,14 @@ export async function searchCpgGuidelines(
       );
     }
 
-    const summaryUrl = `${PUBMED_ESUMMARY}?db=pubmed&id=${finalIds.join(",")}&retmode=json`;
-    const summaryData = await getJson<ESummaryResult>(summaryUrl);
+    const summaries = await pubmedSummary(ids);
 
-    const results: EvidenceResult[] = finalIds
+    const results: EvidenceResult[] = ids
       .map((pmid): EvidenceResult | null => {
-        const art = summaryData.result[pmid] as ArticleSummary | undefined;
+        const art = summaries[pmid];
         if (!art) return null;
-        const year = parseInt(art.pubdate?.split(" ")[0] ?? "0", 10) || undefined;
-        const doi = art.elocationid?.startsWith("10.")
-          ? art.elocationid.replace(/^doi:\s*/i, "").trim()
-          : undefined;
+        const year = parseYear(art.pubdate);
+        const doi = extractDoi(art.elocationid);
 
         return {
           title: truncate(art.title, 200),
@@ -114,9 +91,7 @@ export async function searchCpgGuidelines(
           pmid,
           year,
           journal: art.fulljournalname ?? art.source,
-          url: doi
-            ? `https://doi.org/${doi}`
-            : `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
+          url: buildArticleUrl(doi, pmid),
           evidence_level: "Clinical Practice Guideline / Systematic Review",
         };
       })

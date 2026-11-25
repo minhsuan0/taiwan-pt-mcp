@@ -7,16 +7,19 @@
  *   2. 靜態解剖詞典（確保沙盒環境可用）
  */
 
-import { getJson } from "../utils/http.js";
+import {
+  pubmedSearch,
+  pubmedSummary,
+  extractDoi,
+  parseYear,
+  buildArticleUrl,
+} from "../utils/pubmed.js";
 import {
   buildResponse,
   formatAuthors,
   truncate,
   type EvidenceResult,
 } from "../utils/format.js";
-
-const PUBMED_ESEARCH = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi";
-const PUBMED_ESUMMARY = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi";
 
 // ─── 靜態解剖生物力學詞典 ────────────────────────────────────────────────
 // 涵蓋最常被物理治療師查詢的肌群與關節
@@ -92,22 +95,6 @@ const ANATOMY_DICT: Record<string, { zh: string; function: string; innervation: 
   },
 };
 
-interface ESearchResult {
-  esearchresult: { count: string; idlist: string[] };
-}
-interface ESummaryResult {
-  result: { uids: string[]; [pmid: string]: unknown };
-}
-interface ArticleSummary {
-  uid: string;
-  pubdate: string;
-  source: string;
-  title: string;
-  authors: Array<{ name: string }>;
-  elocationid: string;
-  fulljournalname?: string;
-}
-
 /**
  * @param muscle_or_joint - 肌肉或關節名稱（中英文皆可）
  * @param maxResults      - 最多回傳 PubMed 筆數（預設 4）
@@ -116,26 +103,22 @@ export async function searchAnatomyBiomechanics(
   muscle_or_joint: string,
   maxResults = 4
 ) {
-  // 1. 靜態詞典優先匹配（不依賴網路）
-  const dictKey = Object.keys(ANATOMY_DICT).find(
+  // 1. 靜態詞典匹配（不依賴網路）— 支援多筆匹配
+  const dictKeys = Object.keys(ANATOMY_DICT).filter(
     (k) =>
       muscle_or_joint.toLowerCase().includes(k.toLowerCase()) ||
       k.toLowerCase().includes(muscle_or_joint.toLowerCase())
   );
 
-  const staticResult: EvidenceResult[] = dictKey
-    ? [
-        {
-          title: `解剖定義：${ANATOMY_DICT[dictKey].zh}`,
-          summary:
-            `【功能】${ANATOMY_DICT[dictKey].function}\n` +
-            `【神經支配】${ANATOMY_DICT[dictKey].innervation}\n` +
-            `【臨床意義】${ANATOMY_DICT[dictKey].clinical}`,
-          url: `https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(muscle_or_joint + " anatomy biomechanics")}`,
-          evidence_level: "解剖生物力學標準定義（臨床教科書）",
-        },
-      ]
-    : [];
+  const staticResults: EvidenceResult[] = dictKeys.map((dictKey) => ({
+    title: `解剖定義：${ANATOMY_DICT[dictKey].zh}`,
+    summary:
+      `【功能】${ANATOMY_DICT[dictKey].function}\n` +
+      `【神經支配】${ANATOMY_DICT[dictKey].innervation}\n` +
+      `【臨床意義】${ANATOMY_DICT[dictKey].clinical}`,
+    url: `https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(muscle_or_joint + " anatomy biomechanics")}`,
+    evidence_level: "解剖生物力學標準定義（臨床教科書）",
+  }));
 
   // 2. PubMed 動態查詢（解剖 + 生物力學）
   const pubmedQuery =
@@ -146,26 +129,17 @@ export async function searchAnatomyBiomechanics(
   let pubmedResults: EvidenceResult[] = [];
 
   try {
-    const searchUrl =
-      `${PUBMED_ESEARCH}?db=pubmed` +
-      `&term=${encodeURIComponent(pubmedQuery)}` +
-      `&retmax=${maxResults}&retmode=json&sort=relevance`;
-
-    const searchData = await getJson<ESearchResult>(searchUrl);
-    const ids = searchData.esearchresult?.idlist ?? [];
+    const ids = await pubmedSearch(pubmedQuery, maxResults);
 
     if (ids.length > 0) {
-      const summaryUrl = `${PUBMED_ESUMMARY}?db=pubmed&id=${ids.join(",")}&retmode=json`;
-      const summaryData = await getJson<ESummaryResult>(summaryUrl);
+      const summaries = await pubmedSummary(ids);
 
       pubmedResults = ids
         .map((pmid): EvidenceResult | null => {
-          const art = summaryData.result[pmid] as ArticleSummary | undefined;
+          const art = summaries[pmid];
           if (!art) return null;
-          const year = parseInt(art.pubdate?.split(" ")[0] ?? "0", 10) || undefined;
-          const doi = art.elocationid?.startsWith("10.")
-            ? art.elocationid.replace(/^doi:\s*/i, "").trim()
-            : undefined;
+          const year = parseYear(art.pubdate);
+          const doi = extractDoi(art.elocationid);
           return {
             title: truncate(art.title, 200),
             summary: `${art.fulljournalname ?? art.source}`,
@@ -174,9 +148,7 @@ export async function searchAnatomyBiomechanics(
             pmid,
             year,
             journal: art.fulljournalname ?? art.source,
-            url: doi
-              ? `https://doi.org/${doi}`
-              : `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
+            url: buildArticleUrl(doi, pmid),
             evidence_level: "PubMed — Anatomy / Biomechanics",
           };
         })
@@ -186,7 +158,7 @@ export async function searchAnatomyBiomechanics(
     // PubMed 不可用，靜態結果仍可回傳
   }
 
-  const allResults = [...staticResult, ...pubmedResults];
+  const allResults = [...staticResults, ...pubmedResults];
 
   return buildResponse(
     "解剖生物力學資料庫（PubMed + 臨床詞典）",
